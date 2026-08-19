@@ -4,12 +4,12 @@ The "Pivot Magazine" featured-content edition for the [webOS Archive App Catalog
 
 ## How it fits together
 
-The webOS App Catalog (`com.palm.app.enyo-findapps`) contains a built-in magazine viewer engine. At runtime the engine loads page layout files, bindings, and images from a path inside the package called `defaultEdition/`. The build script in the app repo assembles the final IPK by injecting `Issues/Current/` from this repo into that path.
+The webOS App Catalog (`com.palm.app.enyo-findapps`, repo `webos-appcatalog-touchpad`) ships a tiny placeholder edition baked directly into its own repo — this content is **no longer a submodule or build-time dependency of the app repo**. Instead, the app hydrates the real edition at runtime from `https://appcatalog.webosarchive.org/pivot/{lang}/`, caching it on-device at `/media/internal/.pivot`. This repo is purely the **authoring source** for what gets published to that URL.
 
 ```
 PivotMagazine-WOSA/
 └── Issues/
-    ├── Current/        ← injected as defaultEdition/ when building the IPK
+    ├── Current/        ← published to appcatalog.webosarchive.org/pivot/{lang}/
     │   ├── en/         ← English edition (32 pages, full content)
     │   ├── de/         ← German (page 0 only)
     │   ├── es/fr/it/   ← Other locales (page 0 only)
@@ -17,16 +17,17 @@ PivotMagazine-WOSA/
     └── 2011/           ← archived original HP issue (reference / history)
 ```
 
-## Building the IPK
+## Publishing an issue
 
-From the app catalog workspace (`~/Projects/webos-appcatalog`):
+From this repo's root, for each language:
 
 ```bash
-./build-ipk.sh          # uses Issues/Current as-is
-./build-ipk.sh --pull   # git pull this repo first, then build
+python3 Tools/gen-manifest.py --lang en          # regenerate {lang}/manifest.json first
+python3 Tools/gen-device-manifest.py --lang en --version 2 \
+    --out /path/to/catalog-service/pivot         # derive + stage the publish artifacts
 ```
 
-See the app repo's `build-ipk.sh` for full options.
+`gen-device-manifest.py` copies the raw asset tree and writes `version.json`, `manifest.device.json` (the app's download plan), and `manifest.local.json` (what the app writes to disk as its cached `manifest.json`) into the `catalog-service` checkout's `pivot/{lang}/`, ready to deploy the same way as that repo's other static files. **Bump `--version` every time you republish** — the app compares it against what's cached on-device to decide whether to re-hydrate.
 
 ## Creating a new issue
 
@@ -34,7 +35,7 @@ See the app repo's `build-ipk.sh` for full options.
 2. Edit page content — see `CLAUDE.md` for format details.
 3. Add any new app entries to `{lang}/common/apps/`.
 4. Regenerate `{lang}/manifest.json` using the tooling in `Tools/`.
-5. When ready to ship: copy or symlink the new issue folder to `Issues/Current`.
+5. When ready to ship: copy or symlink the new issue folder to `Issues/Current`, then publish per the steps above with a bumped `--version`.
 
 ## Tools
 
