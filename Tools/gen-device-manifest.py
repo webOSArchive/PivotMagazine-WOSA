@@ -5,8 +5,11 @@ and stage the raw asset tree alongside them for static publishing.
 
 Reads the existing {issue}/{lang}/manifest.json (see gen-manifest.py) and derives,
 under {out}/{lang}/:
-  - a copy of every asset file (mirrors {issue}/{lang}/ minus tooling files)
-  - version.json           {"magazineVersion": N}
+  - a copy of every asset file, under a version-namespaced v{N}/ subdirectory
+    (mirrors {issue}/{lang}/ minus tooling files) -- never a flat, reused-across-
+    versions path, so neither the CDN nor a browser cache can ever serve a
+    DIFFERENT version's cached response for the same URL
+  - version.json           {"magazineVersion": N} -- stays at the flat, stable path
   - manifest.device.json   the hydrator's download plan (sourceUrl/targetFilename per asset)
   - manifest.local.json    the same shape as the app's own manifest.json, but with every
                             physicalPath rewritten to the on-device cache path; this is what
@@ -68,11 +71,29 @@ def main():
         target_filename = flatten(logical)
 
         src_file = lang_dir / logical
-        dst_file = out_lang_dir / logical
+        # Raw assets publish under a version-namespaced path (v{N}/...), not
+        # flat {lang}/{logical} -- confirmed on-device 2026-08-21: with a flat
+        # path reused across versions, Cloudflare's static-file cache (4h
+        # max-age on .js/image extensions, though NOT .json -- see the plain
+        # version.json/manifest.device.json fetches below, which stayed
+        # DYNAMIC/uncached the whole time) kept serving an EARLIER version's
+        # cached response for a .lo.js file even after the origin had long
+        # since been overwritten with new content. version.json bumping
+        # correctly triggered a re-download, and the device wrote it into the
+        # correct version-namespaced on-device directory -- but some of the
+        # bytes landing in that fresh directory were still the stale
+        # Cloudflare-cached response for the old edition's identical URL.
+        # Namespacing the published URL by version, same as the on-device
+        # directory, makes that impossible: no URL is ever reused, so
+        # aggressive caching becomes harmless. This also permanently retires
+        # the "clean up stale files before publishing" step every previous
+        # publish needed -- an old version's files just become unreferenced,
+        # never overwritten-in-place.
+        dst_file = out_lang_dir / f"v{args.version}" / logical
         dst_file.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src_file, dst_file)
 
-        source_url = f"{args.base_url}/{args.lang}/{logical}"
+        source_url = f"{args.base_url}/{args.lang}/v{args.version}/{logical}"
 
         device_assets.append({
             'sourceUrl': source_url,
