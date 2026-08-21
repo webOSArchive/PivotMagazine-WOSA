@@ -27,9 +27,7 @@ python3 Tools/gen-device-manifest.py --lang en --version 2 \
     --out /path/to/catalog-service/pivot         # derive + stage the publish artifacts
 ```
 
-`gen-device-manifest.py` copies the raw asset tree and writes `version.json`, `manifest.device.json` (the app's download plan), and `manifest.local.json` (what the app writes to disk as its cached `manifest.json`) into the `catalog-service` checkout's `pivot/{lang}/`, ready to deploy the same way as that repo's other static files. **Bump `--version` every time you republish** — the app compares it against what's cached on-device to decide whether to re-hydrate, and treats "not higher" as nothing to do.
-
-**`gen-device-manifest.py` only copies/overwrites — it never deletes.** If you removed or renamed page folders since the last publish, their old files are still sitting in `catalog-service/pivot/{lang}/` under the old names and will get published alongside the new content unless you remove them yourself first. Then commit + push `catalog-service` — nothing is live until the server's own `git pull` picks it up. Full step-by-step (including the exact diff-and-clean commands) is in `CLAUDE.md`.
+`gen-device-manifest.py` copies the raw asset tree into a version-namespaced `pivot/{lang}/v{N}/` URL (never a flat, reused-across-versions path — confirmed on-device that reusing the URL let Cloudflare's static-file cache serve a stale earlier version even after the origin had new content) and writes `version.json`, `manifest.device.json` (the app's download plan), and `manifest.local.json` (what the app writes to disk as its cached `manifest.json`) at the stable top-level `pivot/{lang}/` path, ready to deploy the same way as that repo's other static files. **Bump `--version` every time you republish** — the app compares it against what's cached on-device to decide whether to re-hydrate, and treats "not higher" as nothing to do. Then commit + push `catalog-service` — nothing is live until the server's own `git pull` picks it up. Full step-by-step is in `CLAUDE.md`.
 
 ## Creating a new issue
 

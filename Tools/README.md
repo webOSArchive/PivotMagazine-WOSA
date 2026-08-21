@@ -76,14 +76,12 @@ python3 Tools/gen-device-manifest.py --lang en --version 3 \
 ```
 
 Writes into `{out}/{lang}/`:
-- a copy of every asset file (mirrors `{issue}/{lang}/` minus tooling files)
-- `version.json` — `{"magazineVersion": N}`
+- a copy of every asset file, under a version-namespaced `v{N}/` subdirectory (mirrors `{issue}/{lang}/` minus tooling files) — never a flat, reused-across-versions path. Confirmed on-device 2026-08-21: with a flat path, Cloudflare's static-file cache (4h `max-age` on `.js`/image extensions — `.json` stays uncached) kept serving an earlier version's cached response for some files even after the origin had new content, so a device could redownload into the correct on-device directory and still land some stale bytes. Versioning the URL makes that impossible, and as a side effect nothing is ever overwritten in place, so there's no stale-file cleanup step needed anymore even after removing or renaming pages.
+- `version.json` — `{"magazineVersion": N}`, at the stable top-level path (not versioned — this is what the client checks without already knowing the current version)
 - `manifest.device.json` — the hydrator's download plan (`sourceUrl`/`targetFilename` per asset)
 - `manifest.local.json` — the same shape as the app's own manifest, but with every `physicalPath` rewritten to the on-device cache path; this is what gets downloaded last and written to disk as the device's `manifest.json`
 
-**Two things this tool does NOT do for you:**
-1. **It never deletes.** If you removed or renamed page folders since the last publish, their old files are still sitting in the `catalog-service` checkout under their old names and will get committed alongside the new content unless you `rm -rf` them yourself first — diff the `page*` folder listings on both sides before committing.
-2. **It doesn't enforce `--version` being higher than what's already published.** The app compares `magazineVersion` strictly and treats "not higher" as "nothing to do" — forgetting to bump it means every device that already has the old edition cached will never see the republish, with no error anywhere to indicate why.
+**One thing this tool does NOT do for you: it doesn't enforce `--version` being higher than what's already published.** The app compares `magazineVersion` strictly and treats "not higher" as "nothing to do" — forgetting to bump it means every device that already has the old edition cached will never see the republish, with no error anywhere to indicate why.
 
 After running this, commit + push the `catalog-service` checkout — nothing is live until that repo's own deploy step (`git pull` on the server) runs too. See the top-level `CLAUDE.md`'s "Publishing an issue" section for the full sequence with exact commands.
 

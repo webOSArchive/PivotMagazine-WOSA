@@ -182,7 +182,7 @@ If you remove or renumber pages (as was done to shorten `Issues/Current`), two t
 
 ## Publishing an issue
 
-This is the full path from edited content in this repo to it actually being live on real devices — there are two more steps beyond just running the generator, and skipping either one is a real trap (both have bitten this exact repo before):
+This is the full path from edited content in this repo to it actually being live on real devices — there's one more step beyond just running the generator, and skipping it is a real trap (has bitten this exact repo before):
 
 ```bash
 # 1. From this repo's root: regenerate the source manifest for anything you changed.
@@ -194,22 +194,25 @@ python3 Tools/gen-manifest.py --issue Issues/Current --lang en
 #    magazineVersion strictly and treats "not higher" as "nothing to do,"
 #    with no override. Forgetting to bump it means devices silently never
 #    pick up the republish, no matter how many times you push.
+#
+#    Raw assets publish under a version-namespaced pivot/{lang}/v{N}/ URL --
+#    never a flat, reused-across-versions path. That's not just tidiness:
+#    confirmed on-device 2026-08-21 that with a flat path, Cloudflare's
+#    static-file cache (4h max-age on .js/image extensions; .json stays
+#    uncached) kept serving an EARLIER version's cached response for some
+#    files even after the origin had been overwritten with new content --
+#    version.json bumping correctly triggered a redownload into the right
+#    on-device directory, but some of the bytes landing there were still
+#    stale. Versioning the URL itself makes that impossible: no URL is ever
+#    reused, so aggressive caching becomes harmless. This also means nothing
+#    is ever overwritten in place, so there's no stale-file cleanup step
+#    needed here anymore, even if you removed or renamed pages since the
+#    last publish (see "Trimming or reorganizing pages") -- an old version's
+#    files just become unreferenced, not stale-but-still-served.
 python3 Tools/gen-device-manifest.py --lang en --version 3 \
     --out /path/to/catalog-service/pivot
 
-# 3. gen-device-manifest.py only COPIES/OVERWRITES files it knows about --
-#    it never deletes. If you removed or renamed any page folders since the
-#    last publish (see "Trimming or reorganizing pages"), their old files
-#    are still sitting in catalog-service/pivot/{lang}/ under their old
-#    names and WILL get published alongside the new content unless you
-#    remove them yourself first. Diff the two page* folder listings before
-#    committing:
-diff <(ls Issues/Current/en | grep '^page') \
-     <(ls /path/to/catalog-service/pivot/en | grep '^page')
-#    Anything only on the right (catalog-service) side is stale -- rm -rf it
-#    from the catalog-service checkout before committing.
-
-# 4. Commit + push catalog-service, same as any other change to that repo.
+# 3. Commit + push catalog-service, same as any other change to that repo.
 #    Nothing is actually live until this is pushed AND the server has run
 #    its own `git pull` -- pushing to GitHub alone does not deploy it.
 ```
