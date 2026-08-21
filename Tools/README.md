@@ -6,12 +6,12 @@ Cross-platform helpers for working with Pivot Magazine issues. See the repo's `C
 
 ## `preview/` — Live browser preview
 
-Renders the magazine in a desktop browser using the real Enyo 0.x engine from the app's `build.js`. Requires the app repo to be checked out alongside this one under the same `webos-appcatalog/` parent.
+Renders the magazine in a desktop browser using the real Enyo 0.x engine from the app's `build.js`. Requires the `webos-appcatalog-touchpad` app repo to be checked out as a sibling directory to this one (`serve.py` walks up three levels from its own location to find the shared parent, so the parent directory's own name doesn't matter).
 
 **Start the preview:**
 
 ```bash
-cd ~/Projects/webos-appcatalog
+# From the shared parent directory of both repos:
 python3 PivotMagazine-WOSA/Tools/preview/serve.py
 ```
 
@@ -62,6 +62,30 @@ python3 Tools/gen-manifest.py --issue Issues/2026-Summer --lang en --num-pages 2
 Computes MD5 checksums, file sizes, and `physicalPath` values (`source/magazine/defaultEdition/{lang}/…`) for every file in the language folder, then writes `manifest.json` in-place. Preserves the existing `publishDate` if the manifest already exists.
 
 **Run this every time you add, remove, or replace a file in a language folder.**
+
+---
+
+## `gen-device-manifest.py` — Publish to catalog-service
+
+Derives the on-device hydration artifacts for one language from its already-regenerated `manifest.json` (run `gen-manifest.py` first), and stages the raw asset copy alongside them into a `catalog-service` checkout.
+
+```bash
+# From the PivotMagazine-WOSA repo root:
+python3 Tools/gen-device-manifest.py --lang en --version 3 \
+    --out /path/to/catalog-service/pivot
+```
+
+Writes into `{out}/{lang}/`:
+- a copy of every asset file (mirrors `{issue}/{lang}/` minus tooling files)
+- `version.json` — `{"magazineVersion": N}`
+- `manifest.device.json` — the hydrator's download plan (`sourceUrl`/`targetFilename` per asset)
+- `manifest.local.json` — the same shape as the app's own manifest, but with every `physicalPath` rewritten to the on-device cache path; this is what gets downloaded last and written to disk as the device's `manifest.json`
+
+**Two things this tool does NOT do for you:**
+1. **It never deletes.** If you removed or renamed page folders since the last publish, their old files are still sitting in the `catalog-service` checkout under their old names and will get committed alongside the new content unless you `rm -rf` them yourself first — diff the `page*` folder listings on both sides before committing.
+2. **It doesn't enforce `--version` being higher than what's already published.** The app compares `magazineVersion` strictly and treats "not higher" as "nothing to do" — forgetting to bump it means every device that already has the old edition cached will never see the republish, with no error anywhere to indicate why.
+
+After running this, commit + push the `catalog-service` checkout — nothing is live until that repo's own deploy step (`git pull` on the server) runs too. See the top-level `CLAUDE.md`'s "Publishing an issue" section for the full sequence with exact commands.
 
 ---
 

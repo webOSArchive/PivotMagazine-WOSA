@@ -10,11 +10,11 @@ The webOS App Catalog (`com.palm.app.enyo-findapps`, repo `webos-appcatalog-touc
 PivotMagazine-WOSA/
 └── Issues/
     ├── Current/        ← published to appcatalog.webosarchive.org/pivot/{lang}/
-    │   ├── en/         ← English edition (32 pages, full content)
+    │   ├── en/         ← English edition (10 pages, shortened from the original 32 -- see CLAUDE.md)
     │   ├── de/         ← German (page 0 only)
     │   ├── es/fr/it/   ← Other locales (page 0 only)
     │   └── common/     ← lang-agnostic CSS and images
-    └── 2011/           ← archived original HP issue (reference / history)
+    └── 2011/           ← archived original HP issue (reference / history -- never edit)
 ```
 
 ## Publishing an issue
@@ -22,12 +22,14 @@ PivotMagazine-WOSA/
 From this repo's root, for each language:
 
 ```bash
-python3 Tools/gen-manifest.py --lang en          # regenerate {lang}/manifest.json first
+python3 Tools/gen-manifest.py --issue Issues/Current --lang en   # regenerate {lang}/manifest.json first
 python3 Tools/gen-device-manifest.py --lang en --version 2 \
     --out /path/to/catalog-service/pivot         # derive + stage the publish artifacts
 ```
 
-`gen-device-manifest.py` copies the raw asset tree and writes `version.json`, `manifest.device.json` (the app's download plan), and `manifest.local.json` (what the app writes to disk as its cached `manifest.json`) into the `catalog-service` checkout's `pivot/{lang}/`, ready to deploy the same way as that repo's other static files. **Bump `--version` every time you republish** — the app compares it against what's cached on-device to decide whether to re-hydrate.
+`gen-device-manifest.py` copies the raw asset tree and writes `version.json`, `manifest.device.json` (the app's download plan), and `manifest.local.json` (what the app writes to disk as its cached `manifest.json`) into the `catalog-service` checkout's `pivot/{lang}/`, ready to deploy the same way as that repo's other static files. **Bump `--version` every time you republish** — the app compares it against what's cached on-device to decide whether to re-hydrate, and treats "not higher" as nothing to do.
+
+**`gen-device-manifest.py` only copies/overwrites — it never deletes.** If you removed or renamed page folders since the last publish, their old files are still sitting in `catalog-service/pivot/{lang}/` under the old names and will get published alongside the new content unless you remove them yourself first. Then commit + push `catalog-service` — nothing is live until the server's own `git pull` picks it up. Full step-by-step (including the exact diff-and-clean commands) is in `CLAUDE.md`.
 
 ## Creating a new issue
 
