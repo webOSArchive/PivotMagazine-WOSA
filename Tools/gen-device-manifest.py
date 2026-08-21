@@ -89,7 +89,17 @@ def main():
             'section': entry['section'],
             'type': entry['type'],
             'edition': entry['edition'],
-            'physicalPath': f"{DEVICE_CACHE_ROOT}/{args.lang}/{target_filename}",
+            # Version-namespaced, matching pivot-hydration.js's targetDir for
+            # page assets (PIVOT_CACHE_ROOT/lang/v{N}) -- NOT the flat
+            # PIVOT_CACHE_ROOT/lang path manifest.json itself still lives at.
+            # Confirmed on-device 2026-08-21: two editions sharing flattened
+            # filenames in the same unversioned directory let an app killed
+            # mid-hydration leave a mix of old-edition and new-edition page
+            # files on disk, which the (unversioned, downloaded-last)
+            # manifest.json then pointed at as if self-consistent -- broke
+            # rendering outright, not just stale content. Every version
+            # getting its own directory makes that mix impossible.
+            'physicalPath': f"{DEVICE_CACHE_ROOT}/{args.lang}/v{args.version}/{target_filename}",
             'size': entry['size'],
         })
 
