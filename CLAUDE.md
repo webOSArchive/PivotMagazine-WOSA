@@ -6,7 +6,7 @@ Authoring source for "Pivot Magazine," the featured-content edition shown in the
 
 **This is not a submodule or build-time dependency of the app anymore.** The app ships a tiny placeholder edition baked directly into its own repo (`webos-appcatalog-touchpad/main/source/magazine/defaultEdition/{lang}/`) and, at runtime, hydrates the real edition over HTTPS from `https://appcatalog.webosarchive.org/pivot/{lang}/` into on-device storage (`/media/internal/.pivot`). See `main/source/pivot-hydration.js` in the app repo for the client-side half of this. This repo is purely where a real edition's content is authored and staged before publishing to that URL — see "Publishing an issue" below for the actual end-to-end flow.
 
-`Issues/Current/` is the edition currently published live. `Issues/2011/` is the original HP-era content, kept untouched for historical reference — never edit it.
+`Issues/Current/` is the edition currently published live. `Issues/2011/` is the original HP-era content, kept untouched for historical reference — never edit it. (Its `issue.json` is web-reader metadata added alongside the content, not part of it.)
 
 ---
 
@@ -231,6 +231,17 @@ python3 Tools/preview/serve.py                # preview locally, see Tools/READM
 ```
 
 When ready to ship, either point `gen-device-manifest.py --issue Issues/2026-Summer` directly at the new folder for publishing, or replace `Issues/Current`'s contents with the finished issue first (keeping `Issues/Current` as the one canonical "what's live" folder) — either works, `gen-device-manifest.py`'s `--issue` flag defaults to `Issues/Current` but accepts any issue folder.
+
+---
+
+## The web reader (www.webosarchive.org/pivot/magazine/)
+
+Issues are also readable in a browser, linked from the pivotCE blog's sidebar. This is a separate publish path from the on-device one above and doesn't touch `catalog-service`.
+
+- **What's published:** every `Issues/*/` folder with an `issue.json` (title, `YYYY-MM-DD` date, description, languages), minus any marked `"draft": true`. `new-issue.py` writes one as a draft; delete the `draft` line when the issue is ready. `Issues/Current` deliberately has none -- it's a moving pointer, and web links need to keep pointing at the same issue.
+- **How it renders:** `Tools/reader/` hosts the app's real Magazine engine (`main/build.js` from the app repo, Enyo 1.0 from `enyojs/enyo-1.0` with Lunacy's modern-browser patches applied at build time) with the webOS services stubbed, scaled to fit the window. Featured-app buttons link to the App Museum. Keep reader code ES5 -- webOS browsers read the site too. Do **not** stub `window.PalmSystem` there (the preview does): it switches Enyo to device mode and every in-page link silently stops working.
+- **Build locally:** `python3 Tools/build-web.py --app ../webos-appcatalog-touchpad --enyo ../enyo-1.0 --enyo-patches ../Lunacy/LunaRuntimes/enyo-1.0/patches --out build/web`, then serve `build/web` with any static server and open `read.html?issue=2011`.
+- **Deploy:** `Tools/deploy-web.sh` runs from cron on the web server and publishes within ~5 minutes of a push to `main`. Server setup is in `Tools/README.md`.
 
 ---
 

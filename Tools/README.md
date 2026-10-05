@@ -96,7 +96,7 @@ Creates a new issue folder by copying `Issues/Current` as a starting point.
 python3 Tools/new-issue.py 2026-Summer
 ```
 
-Copies `Issues/Current/` → `Issues/2026-Summer/`, updates `publishDate` to today in all `manifest.json` files, and prints next-step instructions.
+Copies `Issues/Current/` → `Issues/2026-Summer/`, updates `publishDate` to today in all `manifest.json` files, writes a draft `issue.json` for the web reader (see below), and prints next-step instructions.
 
 After editing content, regenerate the manifest:
 
@@ -110,3 +110,79 @@ Then preview:
 python3 Tools/preview/serve.py
 # open: http://localhost:8080/PivotMagazine-WOSA/Tools/preview/?issue=2026-Summer&lang=en
 ```
+
+---
+
+## Web reader: `reader/`, `build-web.py`, `deploy-web.sh`
+
+Publishes issues to **www.webosarchive.org/pivot/magazine/** for reading in a browser, using the App Catalog's own Magazine engine. Independent of the on-device publish above.
+
+### Publishing an issue to the web
+
+Give the issue folder an `issue.json` (`new-issue.py` writes one):
+
+```json
+{
+    "title": "Pivot 02: The Something Issue",
+    "date": "2026-11-01",
+    "description": "One or two sentences for the issue list.",
+    "languages": ["en"]
+}
+```
+
+Remove `"draft": true` if present, commit and push. The server publishes it within five minutes, and the newest issue (by `date`) becomes the cover in the blog sidebar.
+
+Each language listed needs its `manifest.json` regenerated (`gen-manifest.py`) and a `page0/images/portrait-bg.jpg`, which is used as the cover. The build fails, leaving the live site untouched, if either is missing.
+
+### Building locally
+
+```bash
+python3 Tools/build-web.py --app ../webos-appcatalog-touchpad \
+    --enyo ../enyo-1.0 --enyo-patches ../Lunacy/LunaRuntimes/enyo-1.0/patches \
+    --out build/web
+cd build/web && python3 -m http.server 8000
+# open: http://localhost:8000/read.html?issue=2011
+```
+
+`--app` is a checkout of `webOSArchive/webos-appcatalog-touchpad`, `--enyo` one of `enyojs/enyo-1.0` (`master`), and `--enyo-patches` the patch series [Lunacy](https://github.com/webOSArchive/Lunacy/tree/main/LunaRuntimes/enyo-1.0) keeps against it for modern browsers. Its FlexLayout fixes matter here, since every magazine page is built from flex boxes. They're applied in order to a copy, the way Lunacy's own build does, and a patch that no longer applies fails the build. The output is plain static files: `index.html` (issue list), `read.html?issue=…&lang=…&page=…` (reader), `issues.json`, and two stable URLs for the blog, `latest.html` (redirects to the newest issue) and `cover.jpg`.
+
+The reader picks portrait or landscape to suit the window (the ↻ button overrides it), scales the TouchPad-sized pages to fit, and turns pages by swipe, the ‹ › buttons, or the arrow keys. Featured-app buttons open the app's page in the App Museum.
+
+### Server setup (one time)
+
+Lives beside the blog on the same box; see pivotCE's `DEPLOY.md` for that side.
+
+```sh
+git clone --depth 1 https://github.com/webOSArchive/PivotMagazine-WOSA /home/wosa/pivot-admin/magazine-src
+/home/wosa/pivot-admin/magazine-src/Tools/deploy-web.sh     # clones the other two repos on first run
+```
+
+Needs `git`, `python3` (3.7+) and `rsync`. Lunacy is cloned sparse, so only its `LunaRuntimes/enyo-1.0` folder is fetched. The output goes to `/home/wosa/wosa-web/pivot-magazine`. That is deliberately **not** `/home/wosa/wosa-web/pivot/magazine`: the blog's deploy rsyncs into `pivot/` with `--delete` and would erase it.
+
+nginx, in the `www.webosarchive.org` server block(s), next to the existing `/pivot/` locations:
+
+```nginx
+# Pivot Magazine web reader. A longer prefix than `location /pivot/`, so it
+# wins for these URLs, and ^~ stops nginx going on to try regex locations --
+# without it, a vhost-wide rule like `location ~* \.(js|css|jpg)$` would take
+# the reader's assets and look for them under the wrong root.
+# alias (not root) because the directory name differs from the URL; that's
+# safe here, with no PHP under it. No try_files: it is unreliable combined
+# with alias, and plain static serving is all this needs.
+location ^~ /pivot/magazine/ {
+    alias /home/wosa/wosa-web/pivot-magazine/;
+}
+location = /pivot/magazine {
+    return 301 $scheme://$host/pivot/magazine/;
+}
+```
+
+Like the blog, keep it on plain http as well as https for webOS browsers.
+
+Cron, as the user that owns the clones (git refuses a repo owned by someone else):
+
+```cron
+*/5 * * * * /home/wosa/pivot-admin/magazine-src/Tools/deploy-web.sh
+```
+
+It exits immediately unless this repo, the app repo or enyo-1.0 has a new commit, or Lunacy's Enyo patches have changed (other Lunacy commits don't trigger a rebuild). Pass `--force` to republish regardless.

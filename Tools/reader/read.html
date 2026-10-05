@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Pivot Magazine</title>
+    <link rel="stylesheet" href="lib/enyo/enyo-build.css">
+    <link rel="stylesheet" href="reader/reader.css">
+
+    <!-- Load order matters: pre-stubs, Enyo, the App Catalog's UserSession and
+         build.js (which carry the Magazine engine), post-stubs, then the reader. -->
+    <script src="reader/stubs-pre.js"></script>
+    <script src="lib/enyo/enyo-build.js"></script>
+    <script src="lib/findapps/UserSession.js"></script>
+    <script src="lib/findapps/build.js"></script>
+    <script src="reader/stubs-post.js"></script>
+    <script src="reader/reader.js"></script>
+</head>
+<body class="reader">
+    <div id="bar">
+        <a id="home" href="./">&larr; All issues</a>
+        <span id="issue-title">Pivot Magazine</span>
+        <span id="controls">
+            <button id="btn-prev" type="button" title="Previous page (&larr;)">&lsaquo;</button>
+            <span id="page-info"></span>
+            <button id="btn-next" type="button" title="Next page (&rarr;)">&rsaquo;</button>
+            <button id="btn-rotate" type="button" title="Switch portrait / landscape">&#x21bb;</button>
+        </span>
+    </div>
+    <div id="stage">
+        <div id="frame">
+            <div id="viewport"></div>
+        </div>
+        <p id="error">This issue could not be loaded. <a href="./">Back to all issues</a></p>
+    </div>
+</body>
+</html>

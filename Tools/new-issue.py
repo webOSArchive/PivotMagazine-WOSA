@@ -6,7 +6,8 @@ Usage (from the PivotMagazine-WOSA repo root):
     python3 Tools/new-issue.py <name>
 
 Creates Issues/<name>/ as a copy of Issues/Current/ and sets publishDate
-in all manifest.json files to today's date. After editing content, run
+in all manifest.json files to today's date, and writes the issue.json that
+the web reader (build-web.py) lists issues by. After editing content, run
 gen-manifest.py to regenerate accurate checksums and file sizes.
 """
 import argparse
@@ -52,6 +53,19 @@ def main():
             pass
 
     print(f'Updated publishDate to {today} in {updated} manifest.json file(s).')
+
+    # Web reader metadata (Tools/build-web.py). "draft" keeps the issue off
+    # the web, so pushing work in progress publishes nothing; delete the line
+    # when the issue is ready.
+    issue_meta = {
+        'title': f'Pivot: {args.name}',
+        'date': datetime.now().strftime('%Y-%m-%d'),
+        'description': '',
+        'languages': ['en'],
+        'draft': True,
+    }
+    (dest / 'issue.json').write_text(json.dumps(issue_meta, indent=4) + '\n', encoding='utf-8')
+    print(f'Wrote Issues/{args.name}/issue.json as a draft (not on the web until "draft" is removed).')
     print()
     print(f'Next steps:')
     print(f'  1. Edit content in Issues/{args.name}/en/  (pages, images, bindings)')
