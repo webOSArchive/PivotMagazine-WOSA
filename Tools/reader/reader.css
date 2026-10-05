@@ -10,38 +10,34 @@ html, body.reader {
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
+/* Positioned rather than flexed: the webOS browsers' WebKit predates
+   reliable flexbox, and left the controls stranded on the left. */
 #bar {
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 44px;
-    display: -webkit-box;
-    display: -webkit-flex;
-    display: flex;
-    -webkit-box-align: center;
-    -webkit-align-items: center;
-    align-items: center;
-    padding: 0 12px;
+    line-height: 44px;
     background: #0b0b0b;
     border-bottom: 1px solid #2a2a2a;
     font-size: 14px;
-    -webkit-box-sizing: border-box;
-    box-sizing: border-box;
 }
 #bar a { color: #9cc4ff; text-decoration: none; white-space: nowrap; }
 #bar a:hover { text-decoration: underline; }
+#home { position: absolute; top: 0; left: 12px; }
 #issue-title {
-    -webkit-box-flex: 1;
-    -webkit-flex: 1;
-    flex: 1;
-    min-width: 0;
-    padding: 0 12px;
+    display: block;
+    margin: 0 240px 0 120px;
     text-align: center;
     font-weight: bold;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
 }
-#controls { white-space: nowrap; }
+#controls {
+    position: absolute;
+    top: 0; right: 12px;
+    white-space: nowrap;
+}
 #controls button {
     min-width: 34px;
     height: 30px;
@@ -52,15 +48,18 @@ html, body.reader {
     border-radius: 4px;
     font-size: 18px;
     line-height: 1;
+    vertical-align: middle;
     cursor: pointer;
 }
+#controls #btn-rotate { padding: 0 9px; font-size: 13px; }
 #controls button:hover { background: #3a3a3a; }
 #controls button[disabled] { opacity: 0.35; cursor: default; }
 #page-info {
     display: inline-block;
     min-width: 56px;
     text-align: center;
-    font-variant-numeric: tabular-nums;
+    vertical-align: middle;
+    line-height: 30px;
 }
 
 #stage {
@@ -104,8 +103,9 @@ html, body.reader {
 }
 .reader-app-button:hover { background: #3c80e6; }
 
-@media (max-width: 480px) {
-    #bar { padding: 0 8px; font-size: 13px; }
+@media (max-width: 600px) {
+    #bar { font-size: 13px; }
+    #home { left: 8px; }
+    #controls { right: 8px; }
     #issue-title { display: none; }
-    #home { -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; }
 }

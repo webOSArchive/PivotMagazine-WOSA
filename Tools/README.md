@@ -146,7 +146,7 @@ cd build/web && python3 -m http.server 8000
 
 `--app` is a checkout of `webOSArchive/webos-appcatalog-touchpad`, `--enyo` one of `enyojs/enyo-1.0` (`master`), and `--enyo-patches` the patch series [Lunacy](https://github.com/webOSArchive/Lunacy/tree/main/LunaRuntimes/enyo-1.0) keeps against it for modern browsers. Its FlexLayout fixes matter here, since every magazine page is built from flex boxes. They're applied in order to a copy, the way Lunacy's own build does, and a patch that no longer applies fails the build. The output is plain static files: `index.html` (issue list), `read.html?issue=…&lang=…&page=…` (reader), `issues.json`, and two stable URLs for the blog, `latest.html` (redirects to the newest issue) and `cover.jpg`.
 
-The reader picks portrait or landscape to suit the window (the ↻ button overrides it), scales the TouchPad-sized pages to fit, and turns pages by swipe, the ‹ › buttons, or the arrow keys. Featured-app buttons open the app's page in the App Museum.
+The reader picks portrait or landscape to suit the window (the Rotate button overrides it), scales the TouchPad-sized pages to fit, and turns pages by a tap or click on the right or left half of the page, the ‹ › buttons, the arrow keys, or a swipe where the browser passes touch drags to the page (webOS browsers don't, so there it's taps). Featured-app buttons open the app's page in the App Museum.
 
 ### Server setup (one time)
 

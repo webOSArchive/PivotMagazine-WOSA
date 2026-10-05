@@ -30,6 +30,7 @@
     var numPages = 0;
     var forced = null;                         // null = follow the window
     var landscape = false;
+    var clickHandled = false;
 
     // Read by stubs-post.js.
     window.PivotReader = {
@@ -39,7 +40,8 @@
         },
         fail: function () {
             document.body.className += ' failed';
-        }
+        },
+        markHandled: function () { clickHandled = true; }
     };
 
     if (!issue) {
@@ -123,6 +125,39 @@
         else magazine.setInternetTargetPage(page);
     }
 
+    // Tap or click a page to turn it: right half forward, left half back.
+    // webOS browsers pan on a drag rather than handing it to the page, so a
+    // swipe never reaches the carousel there -- but a tap always arrives.
+    //
+    // Hooked into Enyo's dispatcher rather than the DOM, because where a
+    // browser does send touch events, Enyo turns them into clicks of its own
+    // that never reach a DOM listener. Features see each event before the
+    // controls do; a link's handler then flags the click (markHandled), so
+    // the turn waits a tick and skips clicks a link already took.
+    var down = null, lastTurn = 0;
+    function wireTapToTurn() {
+        enyo.dispatcher.features.push(function (e) {
+            if (e.type === 'mousedown') {
+                down = { x: e.pageX, y: e.pageY };
+                clickHandled = false;
+            } else if (e.type === 'click') {
+                var x = e.pageX, y = e.pageY, target = e.target;
+                // The end of a drag: the carousel has already turned the page.
+                if (down && (Math.abs(x - down.x) > 10 || Math.abs(y - down.y) > 10)) return;
+                if (!target || !$('frame').contains(target)) return;
+                setTimeout(function () {
+                    // A browser that sends both Enyo's click and its own would
+                    // otherwise turn twice.
+                    var now = new Date().getTime();
+                    if (clickHandled || now - lastTurn < 400) return;
+                    lastTurn = now;
+                    var box = $('frame').getBoundingClientRect();
+                    go(currentPage() + (x - box.left < box.width / 2 ? -1 : 1));
+                }, 0);
+            }
+        });
+    }
+
     function wireMagazine() {
         var M = magazine;
         // Every way the page can change -- swipe, buttons, TOC links -- ends up
@@ -194,6 +229,7 @@
             else if (k === 35) { go(numPages - 1); e.preventDefault(); }
         }, false);
         window.addEventListener('resize', layout, false);
+        wireTapToTurn();
 
         layout();
         magazine = new enyo.FindApps.Magazine.Magazine({});

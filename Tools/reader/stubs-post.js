@@ -62,6 +62,7 @@ enyo.kind({
         this.setContent('View in App Museum');
     },
     clickHandler: function() {
+        PivotReader.markHandled();
         PivotReader.openApp(this.appItem && this.appItem.appId);
         return true;
     },
@@ -108,3 +109,19 @@ enyo.FindApps.Magazine.Magazine.prototype.loadDraftEdition = function() {
     };
     xhr.send(null);
 };
+
+// Every in-page link in an issue goes through one of these. Flag the click so
+// the reader's tap-to-turn leaves it alone.
+(function () {
+    var B = enyo.FindApps.Magazine.BindableLayout.prototype;
+    var names = ['goToTargetAction', 'downloadAppAction', 'saveForLater', 'delegate'];
+    for (var i = 0; i < names.length; i++) {
+        (function (name) {
+            var original = B[name];
+            B[name] = function () {
+                PivotReader.markHandled();
+                return original.apply(this, arguments);
+            };
+        })(names[i]);
+    }
+})();

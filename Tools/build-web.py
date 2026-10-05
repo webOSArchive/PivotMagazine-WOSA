@@ -175,8 +175,8 @@ INDEX_TEMPLATE = '''<!DOCTYPE html>
   <h1>Pivot Magazine</h1>
   <p>Pivot was the magazine inside the App Catalog on the HP TouchPad. HP published one
   issue before webOS hardware was discontinued; webOS Archive is publishing new ones.
-  Swipe or use the arrow keys to turn pages, and switch between portrait and landscape
-  with the &#x21bb; button.</p>
+  Tap or click the right or left side of a page to turn it (or swipe, or use the arrow
+  keys), and switch between portrait and landscape with the Rotate button.</p>
   <p><a href="../">&larr; Back to pivotCE</a></p>
 </header>
 <main>
