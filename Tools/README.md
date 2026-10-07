@@ -138,13 +138,13 @@ Each language listed needs its `manifest.json` regenerated (`gen-manifest.py`) a
 
 ```bash
 python3 Tools/build-web.py --app ../webos-appcatalog-touchpad \
-    --enyo ../enyo-1.0 --enyo-patches ../Lunacy/LunaRuntimes/enyo-1.0/patches \
+    --enyo-build ../webos-sdk-redux/Current/share/framework/enyo/1.0/framework/build \
     --out build/web
 cd build/web && python3 -m http.server 8000
 # open: http://localhost:8000/read.html?issue=2011
 ```
 
-`--app` is a checkout of `webOSArchive/webos-appcatalog-touchpad`, `--enyo` one of `enyojs/enyo-1.0` (`master`), and `--enyo-patches` the patch series [Lunacy](https://github.com/webOSArchive/Lunacy/tree/main/LunaRuntimes/enyo-1.0) keeps against it for modern browsers. Its FlexLayout fixes matter here, since every magazine page is built from flex boxes. They're applied in order to a copy, the way Lunacy's own build does, and a patch that no longer applies fails the build. The output is plain static files: `index.html` (issue list), `read.html?issue=…&lang=…&page=…` (reader), `issues.json`, and two stable URLs for the blog, `latest.html` (redirects to the newest issue) and `cover.jpg`.
+`--app` is a checkout of `webOSArchive/webos-appcatalog-touchpad`, and `--enyo-build` the built Enyo 1.0 framework from [webos-sdk-redux](https://github.com/webOSArchive/webos-sdk-redux): the TouchPad's own Enyo with the patches [Lunacy](https://github.com/webOSArchive/Lunacy/tree/main/LunaRuntimes/enyo-1.0) keeps for modern browsers already applied. Their FlexLayout fixes matter here, since every magazine page is built from flex boxes. Lunacy's patches are diffs against the framework copied off a TouchPad, which isn't in any public repo, so this build can't apply them itself (it used to apply them to `enyojs/enyo-1.0`, until Lunacy rebased them on 2026-10-05); the SDK's `update-frameworks.sh` does, and commits the result. The output is plain static files: `index.html` (issue list), `read.html?issue=…&lang=…&page=…` (reader), `issues.json`, and two stable URLs for the blog, `latest.html` (redirects to the newest issue) and `cover.jpg`.
 
 The reader picks portrait or landscape to suit the window (the Rotate button overrides it), scales the TouchPad-sized pages to fit, and turns pages by a tap or click on the right or left half of the page, the ‹ › buttons, the arrow keys, or a swipe where the browser passes touch drags to the page (webOS browsers don't, so there it's taps). Featured-app buttons open the app's page in the App Museum.
 
@@ -157,7 +157,7 @@ git clone --depth 1 https://github.com/webOSArchive/PivotMagazine-WOSA /home/wos
 /home/wosa/pivot-admin/magazine-src/Tools/deploy-web.sh     # clones the other two repos on first run
 ```
 
-Needs `git`, `python3` (3.7+) and `rsync`. Lunacy is cloned sparse, so only its `LunaRuntimes/enyo-1.0` folder is fetched. The output goes to `/home/wosa/wosa-web/pivot-magazine`. That is deliberately **not** `/home/wosa/wosa-web/pivot/magazine`: the blog's deploy rsyncs into `pivot/` with `--delete` and would erase it.
+Needs `git`, `python3` (3.7+) and `rsync`. webos-sdk-redux is cloned sparse, so only its Enyo build is fetched. Servers set up before the switch can delete the old `enyo-src` and `lunacy-src` clones. The output goes to `/home/wosa/wosa-web/pivot-magazine`. That is deliberately **not** `/home/wosa/wosa-web/pivot/magazine`: the blog's deploy rsyncs into `pivot/` with `--delete` and would erase it.
 
 nginx, in the `www.webosarchive.org` server block(s), next to the existing `/pivot/` locations:
 
@@ -185,4 +185,4 @@ Cron, as the user that owns the clones (git refuses a repo owned by someone else
 */5 * * * * /home/wosa/pivot-admin/magazine-src/Tools/deploy-web.sh
 ```
 
-It exits immediately unless this repo, the app repo or enyo-1.0 has a new commit, or Lunacy's Enyo patches have changed (other Lunacy commits don't trigger a rebuild). Pass `--force` to republish regardless.
+It exits immediately unless this repo or the app repo has a new commit, or the SDK's Enyo build has changed (other SDK commits don't trigger a rebuild). Pass `--force` to republish regardless.

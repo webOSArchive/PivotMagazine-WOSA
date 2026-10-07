@@ -6,9 +6,9 @@
 #
 #   /home/wosa/pivot-admin/magazine-src     this repo, outside the docroot
 #   /home/wosa/pivot-admin/appcatalog-src   webos-appcatalog-touchpad (the engine)
-#   /home/wosa/pivot-admin/enyo-src         enyojs/enyo-1.0 (the framework)
-#   /home/wosa/pivot-admin/lunacy-src       Lunacy, only LunaRuntimes/enyo-1.0:
-#                                           its Enyo patches for modern browsers
+#   /home/wosa/pivot-admin/sdk-src          webos-sdk-redux, only its Enyo build:
+#                                           the TouchPad's Enyo with Lunacy's
+#                                           patches for modern browsers applied
 #   /home/wosa/wosa-web/pivot-magazine      what nginx serves -- build output only
 #
 # Deliberately NOT inside /home/wosa/wosa-web/pivot: the blog's deploy.sh
@@ -26,9 +26,7 @@ SELF=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
 BASE=/home/wosa/pivot-admin
 SRC=$BASE/magazine-src
 APP=$BASE/appcatalog-src
-ENYO=$BASE/enyo-src
-LUNACY=$BASE/lunacy-src
-PATCHES=LunaRuntimes/enyo-1.0
+SDK=$BASE/sdk-src
 BUILD=$BASE/magazine-build
 DOCROOT=/home/wosa/wosa-web/pivot-magazine
 
@@ -39,13 +37,15 @@ STAMP=$SRC/.last-deployed
 # origin. The leading "+" is required on a --depth 1 clone, where every new
 # tip looks like a non-fast-forward. Not --quiet, so a rejection still shows.
 #
-# With a fourth argument, only that path is checked out (and only its blobs
-# fetched): Lunacy is a large, busy repo and all this needs is its patches.
-sync_repo() {   # dir url branch [sparse-path]
+# With further arguments, only those paths are checked out (and only their
+# blobs fetched): the SDK is large and all this needs is one Enyo build.
+sync_repo() {   # dir url branch [sparse-path...]
     if [ ! -d "$1/.git" ]; then
         if [ -n "${4:-}" ]; then
-            git clone --no-progress --depth 1 --branch "$3" --filter=blob:none --sparse "$2" "$1"
-            git -C "$1" sparse-checkout set "$4"
+            dir=$1 url=$2 branch=$3
+            shift 3
+            git clone --no-progress --depth 1 --branch "$branch" --filter=blob:none --sparse "$url" "$dir"
+            git -C "$dir" sparse-checkout set --no-cone "$@"
         else
             git clone --no-progress --depth 1 --branch "$3" "$2" "$1"
         fi
@@ -64,23 +64,26 @@ if [ "$before" != "$(cksum < "$SELF")" ]; then
     exec "$SELF" --force
 fi
 sync_repo "$APP" https://github.com/webOSArchive/webos-appcatalog-touchpad main
-sync_repo "$ENYO" https://github.com/enyojs/enyo-1.0 master
-sync_repo "$LUNACY" https://github.com/webOSArchive/Lunacy main "$PATCHES"
+# Current is a symlink to the SDK's version folder (./0.4); fetching every
+# version's Enyo build is what lets it resolve after a version bump.
+sync_repo "$SDK" https://github.com/webOSArchive/webos-sdk-redux main \
+    /Current '/*/share/framework/enyo/1.0/framework/build/'
+ENYO_BUILD=$SDK/Current/share/framework/enyo/1.0/framework/build
 
-# Lunacy is versioned by the tree of the patches folder, not by its HEAD:
-# Lunacy commits constantly, and almost never to these patches.
-target="$(git -C "$SRC" rev-parse HEAD) $(git -C "$APP" rev-parse HEAD) $(git -C "$ENYO" rev-parse HEAD) $(git -C "$LUNACY" rev-parse "HEAD:$PATCHES")"
+# The SDK is versioned by the tree of its Enyo build, not by its HEAD: most
+# SDK commits don't touch Enyo.
+sdk_version=$(git -C "$SDK" cat-file -p HEAD:Current)
+target="$(git -C "$SRC" rev-parse HEAD) $(git -C "$APP" rev-parse HEAD) $(git -C "$SDK" rev-parse "HEAD:${sdk_version#./}/share/framework/enyo/1.0/framework/build")"
 if [ "${1:-}" != "--force" ] \
    && [ -f "$STAMP" ] && [ "$(cat "$STAMP")" = "$target" ] \
    && [ -f "$DOCROOT/index.html" ]; then
     exit 0                      # already published; the normal case on most runs
 fi
 
-# build-web.py validates every published issue, and fails if a Lunacy patch no
-# longer applies, rather than produce a partial site -- so a bad commit in any
-# of the four leaves the live reader untouched.
+# build-web.py validates every published issue rather than produce a partial
+# site -- so a bad commit in any of the three leaves the live reader untouched.
 python3 "$SRC/Tools/build-web.py" \
-    --app "$APP" --enyo "$ENYO" --enyo-patches "$LUNACY/$PATCHES/patches" \
+    --app "$APP" --enyo-build "$ENYO_BUILD" \
     --out "$BUILD" >/dev/null
 
 mkdir -p "$DOCROOT"

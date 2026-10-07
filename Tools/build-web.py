@@ -5,14 +5,15 @@ browser with the App Catalog's own Magazine engine.
 
 Usage (from the PivotMagazine-WOSA repo root):
     python3 Tools/build-web.py --app ../webos-appcatalog-touchpad \\
-        --enyo ../enyo-1.0 --enyo-patches ../Lunacy/LunaRuntimes/enyo-1.0/patches \\
+        --enyo-build ../webos-sdk-redux/Current/share/framework/enyo/1.0/framework/build \\
         --out build/web
 
---enyo is a checkout of enyojs/enyo-1.0 (master), and --enyo-patches the
-patch series Lunacy maintains against it for modern browsers -- chiefly the
-FlexLayout fixes, which every magazine page depends on. The patches are
-applied in order to a copy, as Lunacy's own fetch-assets.sh does, and one
-that no longer applies fails the build rather than being skipped.
+--enyo-build is the built Enyo 1.0 framework from webos-sdk-redux: the
+TouchPad's own Enyo with Lunacy's patches for modern browsers already applied
+-- chiefly the FlexLayout fixes, which every magazine page depends on. Lunacy
+keeps those patches against the device's framework, which isn't public, so
+they can't be applied here; webos-sdk-redux's update-frameworks.sh applies
+them and commits the result, and this build copies it as-is.
 
 An issue is published to the web only if its folder has an issue.json:
 
@@ -35,7 +36,7 @@ Output:
     latest.html       redirects to the newest issue
     cover.jpg         the newest issue's cover
     reader/           reader scripts and styles (Tools/reader)
-    lib/enyo/         Enyo 1.0 framework build, with Lunacy's patches
+    lib/enyo/         Enyo 1.0 framework build (webos-sdk-redux, Lunacy's patches applied)
     lib/findapps/     the App Catalog's build.js + UserSession.js
     issues/<id>/      cover.jpg and one folder per published language
 """
@@ -44,11 +45,8 @@ import html
 import json
 import pathlib
 import re
-import os
 import shutil
-import subprocess
 import sys
-import tempfile
 from datetime import date
 
 REPO_ROOT = pathlib.Path(__file__).parent.parent.resolve()
@@ -205,44 +203,19 @@ LATEST_TEMPLATE = '''<!DOCTYPE html>
 '''
 
 
-def patched_enyo_build(enyo, patches, dest):
-    """Copy enyo/framework, apply each patch in order, keep only build/.
-
-    The patches touch framework/source/ as well as the built file, so they
-    are applied to the whole framework and the source then dropped: the
-    reader loads only enyo-build.js."""
-    series = sorted(patches.glob('*.patch'))
-    if not series:
-        fail(f'no *.patch files in {patches}')
-    with tempfile.TemporaryDirectory() as tmp:
-        shutil.copytree(enyo / 'framework', pathlib.Path(tmp) / 'framework')
-        # Stop git from finding a repository above the temp dir: inside one,
-        # `git apply` takes paths relative to that repo's root instead.
-        env = dict(os.environ, GIT_CEILING_DIRECTORIES=str(pathlib.Path(tmp).parent))
-        for patch in series:
-            r = subprocess.run(['git', 'apply', str(patch)], cwd=tmp, env=env,
-                               capture_output=True, text=True)
-            if r.returncode != 0:
-                fail(f'{patch.name} does not apply to {enyo}:\n{r.stderr.strip()}')
-        shutil.copytree(pathlib.Path(tmp) / 'framework' / 'build', dest, ignore=SKIP)
-    return [p.name for p in series]
-
-
 def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--app', required=True, type=pathlib.Path,
                    help='checkout of webOSArchive/webos-appcatalog-touchpad')
-    p.add_argument('--enyo', required=True, type=pathlib.Path,
-                   help='checkout of enyojs/enyo-1.0')
-    p.add_argument('--enyo-patches', required=True, type=pathlib.Path,
-                   help="Lunacy's Enyo patch series (Lunacy/LunaRuntimes/enyo-1.0/patches)")
+    p.add_argument('--enyo-build', required=True, type=pathlib.Path,
+                   help="webos-sdk-redux's Current/share/framework/enyo/1.0/framework/build")
     p.add_argument('--out', required=True, type=pathlib.Path, help='output directory')
     args = p.parse_args()
 
     app_build = args.app / 'main' / 'build.js'
     user_session = args.app / 'UserSession.js'
-    for f in (app_build, user_session, args.enyo / 'framework' / 'build' / 'enyo-build.js'):
+    for f in (app_build, user_session, args.enyo_build / 'enyo-build.js'):
         if not f.is_file():
             fail(f'missing {f}')
 
@@ -257,7 +230,7 @@ def main():
     out = args.out.resolve()
     prepare_out(out)
 
-    applied = patched_enyo_build(args.enyo, args.enyo_patches, out / 'lib' / 'enyo')
+    shutil.copytree(args.enyo_build, out / 'lib' / 'enyo', ignore=SKIP)
     (out / 'lib' / 'findapps').mkdir(parents=True)
     shutil.copy2(app_build, out / 'lib' / 'findapps' / 'build.js')
     shutil.copy2(user_session, out / 'lib' / 'findapps' / 'UserSession.js')
@@ -279,7 +252,6 @@ def main():
     shutil.copy2(issues[0]['_cover_src'], out / 'cover.jpg')
 
     print(f'build-web: {len(issues)} issue(s) -> {out}')
-    print(f'  enyo: applied {", ".join(applied)}')
     for d in drafts:
         print(f'  {d:<16} skipped: draft')
     for i in issues:
